@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ร้านน้ำชงออนไลน์</title>
+    <style>
+        :root { --sea-dark: #005C8A; --sea-main: #00A8CC; --sea-light: #E0F7FA; --sea-bg: #B2EBF2; --text-dark: #333; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Kanit', sans-serif; }
+        body { background-color: var(--sea-bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        /* App Layout */
+        .app-wrapper { width: 100%; max-width: 400px; height: 95vh; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        @media (max-width: 400px) { .app-wrapper { height: 100vh; border-radius: 0; } }
+        
+        /* View Switcher */
+        .view-section { display: none; flex-direction: column; height: 100%; flex: 1; }
+        .view-section.active { display: flex; }
+        
+        /* หน้าเลือก Role */
+        #role-view { justify-content: center; align-items: center; background: var(--sea-light); padding: 20px; text-align: center; }
+        .role-btn { width: 100%; padding: 15px; margin: 10px 0; border: none; border-radius: 10px; font-size: 1.2rem; cursor: pointer; color: white; font-weight: bold; }
+        .btn-customer { background-color: var(--sea-main); } .btn-admin { background-color: #ff9800; }
+        
+        /* Header */
+        .header-bar { background-color: var(--sea-dark); color: white; padding: 15px; display: flex; align-items: center; justify-content: space-between; }
+        .header-info { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 1.1rem; }
+        .avatar { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; }
+        
+        /* Chat Area (ที่แก้ไขให้เลื่อนได้) */
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background-color: var(--sea-light); display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 20px; font-size: 0.95rem; }
+        .message.bot { background: white; color: var(--text-dark); align-self: flex-start; border-bottom-left-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .message.user { background: var(--sea-main); color: white; align-self: flex-end; border-bottom-right-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        /* Inputs & Buttons */
+        .quick-replies { padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid #eee; background: white; }
+        .quick-reply-btn { background: white; color: var(--sea-main); border: 1px solid var(--sea-main); padding: 8px 15px; border-radius: 20px; cursor: pointer; }
+        .quick-reply-btn.action { background: #ff9800; color: white; border-color: #ff9800; }
+        .chat-input-area { display: none; padding: 10px; border-top: 1px solid #eee; background: white;}
+        .chat-input-area input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        .chat-input-area button { background: var(--sea-main); color: white; border: none; padding: 0 15px; margin-left: 10px; border-radius: 20px; cursor: pointer; }
+        
+        /* Dashboard */
+        .dash-content { flex: 1; overflow-y: auto; padding: 15px; background: #f9f9f9; }
+        .order-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .status-new { background: #f44336; padding: 3px 8px; border-radius: 10px; font-size: 0.8rem; color: white;}
+        .status-done { background: #4CAF50; padding: 3px 8px; border-radius: 10px; font-size: 0.8rem; color: white;}
+        .action-btns { display: flex; gap: 10px; margin-top: 15px; }
+        .action-btns button { flex: 1; padding: 8px; border: none; border-radius: 5px; cursor: pointer; color: white; font-weight: bold; }
+        
+        /* Loading */
+        #global-loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--sea-main); display: flex; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; color: white; flex-direction: column; transition: 0.3s; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="global-loading"><div class="spinner"></div><p id="loading-text">กำลังเชื่อมต่อฐานข้อมูล...</p></div>
+
+    <div class="app-wrapper">
+        <div id="role-view" class="view-section">
+            <h1 style="color: var(--sea-dark); margin-bottom: 30px;">🌊 ระบบร้านน้ำชง</h1>
+            <button class="role-btn btn-customer" onclick="openCustomer()">🥤 สั่งเครื่องดื่ม (ลูกค้า)</button>
+            <button class="role-btn btn-admin" onclick="openAdmin()">💻 จัดการหลังร้าน (ร้านค้า)</button>
+        </div>
+
+        <div id="customer-view" class="view-section">
+            <div class="header-bar">
+                <div class="header-info"><div class="avatar">🌊</div><span id="shop-name-display">ร้านน้ำชง</span></div>
+                <button onclick="goHome()" style="background:none; border:none; color:white; font-size: 0.9rem; cursor: pointer;">ย้อนกลับ</button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="quick-replies" id="quick-replies"></div>
+            <div class="chat-input-area" id="input-area">
+                <input type="text" id="user-input" placeholder="พิมพ์ชื่อ, เบอร์, ที่อยู่จัดส่ง..." onkeypress="if(event.key==='Enter') finishOrder()">
+                <button onclick="finishOrder()">ส่ง</button>
+            </div>
+        </div>
+
+        <div id="admin-view" class="view-section">
+            <div class="header-bar" style="background-color: #ff9800;">
+                <div class="header-info">📊 ระบบจัดการร้าน</div>
+                <button onclick="goHome()" style="background:none; border:none; color:white; font-size: 0.9rem; cursor: pointer;">ย้อนกลับ</button>
+            </div>
+            <div style="display:flex; background:#eee;">
+                <button onclick="switchTab('orders')" id="tab-orders" style="flex:1; padding:10px; border:none; background:#ddd; cursor: pointer;">ออเดอร์</button>
+                <button onclick="switchTab('settings')" id="tab-settings" style="flex:1; padding:10px; border:none; cursor: pointer;">ตั้งค่าร้าน</button>
+            </div>
+            <div id="tab-content-orders" class="dash-content"></div>
+            <div id="tab-content-settings" class="dash-content" style="display:none; padding:20px;">
+                <h3>⚙️ ตั้งค่าข้อมูลร้าน</h3>
+                <label>ชื่อร้าน:</label> <input type="text" id="set-store-name" style="width:100%; padding:8px; margin:5px 0;">
+                <label>เบอร์โทร:</label> <input type="text" id="set-store-tel" style="width:100%; padding:8px; margin:5px 0;">
+                <button onclick="saveStoreSettings()" style="width:100%; padding:12px; background:#4CAF50; color:white; border:none; margin-top:10px; cursor: pointer;">💾 บันทึกตั้งค่า</button>
+                <hr style="margin:20px 0;">
+                <p style="color:red; font-size:0.8rem;">* การเพิ่มเมนู ตัวเลือก หรือท็อปปิ้ง ให้พิมพ์เพิ่มใน Google Sheets ได้เลย</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🔴 นำ Web App URL มาใส่ตรงนี้
+        const API_URL = 'https://script.google.com/macros/s/AKfycbz-KCVYUSlkZYGmmhaIClEoIZ2AglxFuHvASDmruZCSpyOFfz7OYACT72b8xSNsK055Bg/exec'; 
+        // ==========================================
+
+        let config = { menus: [], options: [], toppings: [], settings: {} };
+        
+        window.onload = () => {
+            if(API_URL.includes('...') || API_URL === '') { document.getElementById('loading-text').innerText = "กรุณาใส่ API_URL"; return; }
+            fetch(API_URL + '?action=getConfig').then(res => res.json()).then(data => {
+                config = data;
+                document.getElementById('shop-name-display').innerText = config.settings.StoreName || 'ร้านน้ำชง';
+                document.getElementById('set-store-name').value = config.settings.StoreName || '';
+                document.getElementById('set-store-tel').value = config.settings.Tel || '';
+                document.getElementById('global-loading').style.display = 'none';
+                document.getElementById('role-view').classList.add('active');
+            }).catch(() => alert("โหลดข้อมูลล้มเหลว"));
+        };
+
+        // --- แก้ไขระบบเปลี่ยนหน้าจอ (Navigation Fix) ---
+        function clearAllViews() {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        }
+
+        function goHome() { 
+            clearAllViews();
+            document.getElementById('role-view').classList.add('active'); 
+        }
+
+        function openCustomer() { 
+            clearAllViews(); // เคลียร์หน้าอื่นออกก่อน
+            document.getElementById('customer-view').classList.add('active'); // เปิดเฉพาะหน้าแชท
+            resetChat(); 
+        }
+
+        function openAdmin() { 
+            clearAllViews();
+            document.getElementById('admin-view').classList.add('active'); 
+            switchTab('orders'); 
+        }
+        // ---------------------------------------------
+
+        function showLoading(txt) { document.getElementById('loading-text').innerText=txt; document.getElementById('global-loading').style.display='flex'; }
+        function hideLoading() { document.getElementById('global-loading').style.display='none'; }
+
+        // --- ระบบลูกค้า (Bot) ---
+        let cart=[], total=0, selectedToppings=[], tempDrink='';
+        const chatMessages = document.getElementById('chat-messages'), quickReplies = document.getElementById('quick-replies'), inputArea = document.getElementById('input-area');
+        
+        function resetChat() {
+            cart = []; total = 0; chatMessages.innerHTML = ''; inputArea.style.display = 'none';
+            botReply("สวัสดีค่ะ 🙏 รับหมวดหมู่ไหนดีคะ?", [{ label: '🥤 น้ำชง', action: () => { addUserMessage("น้ำชง"); showMenu(); } }, { label: '🍧 น้ำแข็งใส', action: () => { addUserMessage("น้ำแข็งใส"); showToppingOptions(); } }]);
+        }
+
+        function showMenu() { botReply("เลือกเมนูได้เลยค่ะ 👇", config.menus.map(d => ({ label: d, action: () => { addUserMessage(d); tempDrink=d; showOptions(); } }))); }
+        function showOptions() { botReply(`รับ ${tempDrink} แบบไหนคะ?`, config.options.map(o => ({ label: o.label, action: () => { addUserMessage(o.label); addToCart(`${tempDrink} (${o.label})`, o.p); } }))); }
+        
+        function showToppingOptions() {
+            selectedToppings = selectedToppings || [];
+            let count = selectedToppings.length + 1;
+            let btns = config.toppings.map(t => ({ label: t, action: () => { selectedToppings.push(t); if(selectedToppings.length < 5) showToppingOptions(); else confirmIce(); } }));
+            if(selectedToppings.length > 0) btns.push({ label: '✅ พอแล้ว/ยืนยัน', action: () => confirmIce() });
+            botReply(`เลือกท็อปปิ้งอย่างที่ ${count} ค่ะ\n(เลือกแล้ว: ${selectedToppings.join(', ') || 'ยังไม่มี'})`, btns);
+        }
+        function confirmIce() { addUserMessage("ยืนยันท็อปปิ้ง"); addToCart(`น้ำแข็งใส (${selectedToppings.join(', ')})`, 20); selectedToppings = []; }
+
+        function addToCart(itemName, price) {
+            cart.push(itemName); total += price;
+            botReply(`เพิ่มลงตะกร้าแล้ว! ยอดรวม ${total}฿\nรับเพิ่มไหมคะ?`, [ { label: '➕ สั่งเพิ่ม', action: () => resetChat() }, { label: '✅ ชำระเงิน', action: () => { addUserMessage("ชำระเงิน"); botReply("พิมพ์ **ชื่อ, เบอร์, และที่อยู่จัดส่ง** ด้านล่างได้เลยค่ะ 🛵"); quickReplies.innerHTML=''; inputArea.style.display='flex'; } } ]);
+        }
+
+        function finishOrder() {
+            let addr = document.getElementById('user-input').value.trim(); if(!addr) return;
+            addUserMessage(addr); inputArea.style.display = 'none'; document.getElementById('user-input').value='';
+            showLoading("กำลังส่งออเดอร์...");
+            fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'saveOrder', date: new Date().toLocaleString('th-TH'), items: cart.join(', '), total: total, address: addr }) }).then(res=>res.json()).then(data => { hideLoading(); botReply(`✅ ส่งออเดอร์สำเร็จ!\nรหัสบิล: ${data.id}\nรอรับได้เลย 🛵💨`, [{label:'🔄 สั่งใหม่', action: resetChat}]); });
+        }
+
+        // เพิ่มการสั่งให้หน้าจอเลื่อนลงมาล่างสุดเสมอเมื่อมีข้อความใหม่
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addUserMessage(txt) { 
+            chatMessages.innerHTML += `<div class="message user">${txt}</div>`; 
+            scrollToBottom(); 
+            quickReplies.innerHTML=''; 
+        }
+        
+        function botReply(txt, btns = []) {
+            chatMessages.innerHTML += `<div class="message bot">${txt}</div>`; quickReplies.innerHTML = '';
+            btns.forEach(btn => { let b = document.createElement('button'); b.className = btn.label.includes('ชำระ') ? 'quick-reply-btn action' : 'quick-reply-btn'; b.innerText = btn.label; b.onclick = btn.action; quickReplies.appendChild(b); });
+            scrollToBottom();
+        }
+
+        // --- ระบบหลังร้าน ---
+        function switchTab(tab) { document.getElementById('tab-content-orders').style.display = tab==='orders'?'block':'none'; document.getElementById('tab-content-settings').style.display = tab==='settings'?'block':'none'; document.getElementById('tab-orders').style.background = tab==='orders'?'#ddd':'#eee'; document.getElementById('tab-settings').style.background = tab==='settings'?'#ddd':'#eee'; if(tab==='orders') fetchOrders(); }
+        
+        function fetchOrders() {
+            showLoading("ดึงข้อมูล...");
+            fetch(API_URL + '?action=getOrders').then(res=>res.json()).then(data => {
+                hideLoading(); const dash = document.getElementById('tab-content-orders');
+                if(data.length===0) { dash.innerHTML="<p style='text-align:center;'>ยังไม่มีออเดอร์</p>"; return; }
+                dash.innerHTML = data.map(o => `<div class="order-card"><div style="display:flex; justify-content:space-between; border-bottom:1px solid #eee; padding-bottom:5px;"><strong>#${o.OrderID}</strong><span class="${o.Status==='รอดำเนินการ'?'status-new':'status-done'}">${o.Status}</span></div><div style="font-size:0.9rem; color:gray;">📅 ${o.Date}</div><div style="font-size:0.95rem; margin-top:5px;">📦 <b>รายการ:</b> ${o.Items}<br>💰 <b>ยอดรวม:</b> <span style="color:#e91e63; font-weight:bold;">${o.Total} ฿</span><br>🛵 <b>ที่อยู่:</b> ${o.Address}</div>${o.Status==='รอดำเนินการ'?`<div class="action-btns"><button style="background:#4CAF50;" onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว')">✔️ เสร็จแล้ว</button><button style="background:#9e9e9e;" onclick="updateStatus('${o.OrderID}', 'ยกเลิก')">✖️ ยกเลิก</button></div>`:'' }</div>`).join('');
+            });
+        }
+        
+        function updateStatus(id, st) { if(confirm(`เปลี่ยนสถานะเป็น ${st}?`)) { showLoading("อัปเดต..."); fetch(`${API_URL}?action=updateStatus&id=${id}&status=${st}`).then(() => fetchOrders()); } }
+        
+        function saveStoreSettings() { showLoading("บันทึก..."); fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'saveSettings', settings: { StoreName: document.getElementById('set-store-name').value, Tel: document.getElementById('set-store-tel').value } }) }).then(() => { hideLoading(); alert("บันทึกสำเร็จ!"); location.reload(); }); }
+    </script>
+</body>
+</html>
